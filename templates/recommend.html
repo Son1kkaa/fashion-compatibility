@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Fashion — Рекомендації</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        .nav-links{display:flex;gap:12px;justify-content:center;margin-bottom:30px}
+        .nav-link{padding:10px 22px;border-radius:14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#d4d4d8;text-decoration:none;font-weight:600;font-size:.9rem;transition:.3s}
+        .nav-link:hover,.nav-link.active{background:linear-gradient(135deg,#8b5cf6,#3b82f6);color:#fff;border-color:transparent}
+        .controls{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:24px}
+        .query-card{position:relative;width:200px;height:220px;border-radius:22px;overflow:hidden;border:1px dashed rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);cursor:pointer;flex-shrink:0;transition:.3s}
+        .query-card:hover{border-color:rgba(139,92,246,0.6);transform:translateY(-3px)}
+        .query-card input{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:10}
+        .query-card .ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--muted)}
+        .query-card .ph .icon{font-size:2.2rem}
+        .query-card img{width:100%;height:100%;object-fit:cover;display:none}
+        .control-group{display:flex;flex-direction:column;gap:6px}
+        .control-group label{font-size:.85rem;color:var(--muted);font-weight:600}
+        .control-group select{
+            font-family:inherit;font-size:.95rem;border-radius:14px;padding:13px 16px;
+            border:1px solid rgba(255,255,255,0.15);
+            background:rgba(255,255,255,0.08);
+            color:#ffffff;
+            appearance:none;
+            -webkit-appearance:none;
+            background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23a1a1aa' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+            background-repeat:no-repeat;
+            background-position:right 14px center;
+            padding-right:36px;
+            cursor:pointer;
+        }
+        .control-group select option{background:#1e1e2e;color:#ffffff}
+        .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:18px;margin-top:24px}
+        .rec{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:22px;overflow:hidden;transition:.3s}
+        .rec:hover{transform:translateY(-4px);box-shadow:0 15px 35px rgba(0,0,0,0.3)}
+        .rec img{width:100%;height:220px;object-fit:cover}
+        .rec .meta{padding:14px 16px}
+        .rec .score{font-size:1.5rem;font-weight:800}
+        .rec .cat{color:var(--muted);font-size:.85rem;margin-top:4px;text-transform:capitalize}
+        .g{color:var(--green)}.o{color:var(--orange)}.r{color:var(--red)}
+        .empty-rec{text-align:center;padding:60px 20px;color:var(--muted)}
+        .empty-rec .icon{font-size:3rem;margin-bottom:12px}
+    </style>
+</head>
+<body>
+<div class="background-blur blur-1"></div>
+<div class="background-blur blur-2"></div>
+
+<div class="main-container">
+    <header class="hero-section">
+        <div class="hero-badge">AI Fashion Compatibility</div>
+        <h1>Top-K рекомендації <span>сумісних елементів</span></h1>
+        <p>Завантажте одну річ — система знайде у базі гардеробу найбільш сумісні елементи, ранжуючи їх за оцінкою сіамської нейронної мережі.</p>
+    </header>
+
+    <nav class="nav-links">
+        <a href="/" class="nav-link">Порівняння пари</a>
+        <a href="/recommend_page" class="nav-link active">Top-K рекомендації</a>
+    </nav>
+
+    <div class="upload-panel" style="max-width:900px;margin:0 auto">
+        <div class="controls">
+            <label class="query-card">
+                <input type="file" id="queryFile" accept="image/*">
+                <div class="ph" id="ph"><div class="icon">👕</div><span>Завантажте фото</span></div>
+                <img id="queryPreview" alt="">
+            </label>
+            <div class="control-group">
+                <label>Категорія для пошуку</label>
+                <select id="category">
+                    <option value="">Усі категорії</option>
+                    <option value="bottoms">Низ (bottoms)</option>
+                    <option value="tops">Верх (tops)</option>
+                    <option value="shoes">Взуття (shoes)</option>
+                    <option value="outerwear">Верхній одяг</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Кількість</label>
+                <select id="k">
+                    <option value="3">Top-3</option>
+                    <option value="4" selected>Top-4</option>
+                    <option value="6">Top-6</option>
+                </select>
+            </div>
+            <button class="analyze-btn" id="go" style="max-width:220px;padding:16px 24px">
+                <span id="btn-text">Знайти рекомендації</span>
+                <div class="loader" id="loader"></div>
+            </button>
+        </div>
+
+        <div class="empty-rec" id="empty-rec">
+            <div class="icon">🔍</div>
+            <p>Завантажте фото та натисніть «Знайти рекомендації»</p>
+        </div>
+
+        <div class="grid" id="results"></div>
+    </div>
+</div>
+
+<script>
+const qf=document.getElementById('queryFile'),prev=document.getElementById('queryPreview'),ph=document.getElementById('ph');
+qf.addEventListener('change',function(){const f=this.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{prev.src=e.target.result;prev.style.display='block';ph.style.display='none'};r.readAsDataURL(f)});
+
+document.getElementById('go').addEventListener('click',async()=>{
+    if(!qf.files[0]){alert('Завантажте фото.');return}
+    const fd=new FormData();
+    fd.append('image',qf.files[0]);
+    fd.append('category',document.getElementById('category').value);
+    fd.append('k',document.getElementById('k').value);
+    const btn=document.getElementById('go'),btnText=document.getElementById('btn-text'),loader=document.getElementById('loader');
+    btn.disabled=true;btnText.innerText='Пошук...';loader.style.display='block';
+    try{
+        const res=await fetch('/recommend',{method:'POST',body:fd});
+        const data=await res.json();
+        const grid=document.getElementById('results');grid.innerHTML='';
+        document.getElementById('empty-rec').style.display='none';
+        if(data.error){alert(data.error);return}
+        data.recommendations.forEach(r=>{
+            const cls=r.score>=80?'g':(r.score>=60?'o':'r');
+            const div=document.createElement('div');div.className='rec';
+            div.innerHTML=`<img src="/static/${r.filename}" alt="${r.category}"><div class="meta"><div class="score ${cls}">${r.score}%</div><div class="cat">${r.category}</div></div>`;
+            grid.appendChild(div)
+        })
+    }catch(e){alert('Помилка сервера.')}
+    finally{btn.disabled=false;btnText.innerText='Знайти рекомендації';loader.style.display='none'}
+});
+</script>
+</body>
+</html>
